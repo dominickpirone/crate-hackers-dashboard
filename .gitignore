@@ -1,0 +1,14 @@
+# Data files - contain customer PII, never commit
+dashboard/data/
+*.csv
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# Claude local config
+.claude/
