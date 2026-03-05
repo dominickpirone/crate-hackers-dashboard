@@ -1,5 +1,5 @@
 # Data files - contain customer PII, never commit
-dashboard/data/
+docs/data/
 *.csv
 
 # OS files
