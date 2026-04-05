@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dahlonega Rainfall Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1923;--surface:#162230;--surface2:#1e2d3d;--border:#2a3f55;
+  --text:#e0eaf5;--text2:#8ba4be;--text3:#5a7a96;
+  --blue:#4a9eff;--green:#34d399;--rain:#5bb8f5;--rain-dark:#2d7ec4;
+  --rain-light:#a3d8ff;--orange:#fb923c;--yellow:#fbbf24;
+  --radius:12px;--shadow:0 4px 24px rgba(0,0,0,.35);
+}
+html{font-size:15px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* Header */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+.header-left{display:flex;align-items:center;gap:14px}
+.logo{font-size:1.5rem;font-weight:700;background:linear-gradient(135deg,var(--rain),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo-sub{font-size:.78rem;color:var(--text2);margin-top:2px}
+.header-right{display:flex;align-items:center;gap:12px}
+.back-link{color:var(--text2);font-size:.85rem;text-decoration:none;padding:6px 14px;border:1px solid var(--border);border-radius:8px;transition:all .2s}
+.back-link:hover{color:var(--text);border-color:var(--text3)}
+
+/* Layout */
+.container{max-width:1100px;margin:0 auto;padding:24px 20px}
+.grid{display:grid;gap:20px}
+.grid-stats{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.card-title{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:8px;font-weight:600}
+.stat-value{font-size:2rem;font-weight:700;color:var(--rain-light)}
+.stat-unit{font-size:.85rem;color:var(--text2);font-weight:400}
+.stat-detail{font-size:.78rem;color:var(--text3);margin-top:4px}
+
+/* Input form */
+.input-section{margin-top:20px}
+.form-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:.78rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.form-group input,.form-group textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:.95rem;font-family:inherit;outline:none;transition:border-color .2s}
+.form-group input:focus,.form-group textarea:focus{border-color:var(--rain)}
+.form-group input[type="date"]{min-width:160px}
+.form-group input[type="number"]{width:120px}
+.form-group textarea{resize:vertical;min-height:40px}
+.btn{padding:10px 22px;border:none;border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn-primary{background:linear-gradient(135deg,var(--rain-dark),var(--rain));color:#fff}
+.btn-primary:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.btn-danger{background:transparent;color:var(--orange);border:1px solid var(--border);padding:6px 12px;font-size:.75rem}
+.btn-danger:hover{border-color:var(--orange);background:rgba(251,146,60,.08)}
+.btn-clear{background:transparent;color:var(--text3);border:1px solid var(--border);padding:8px 16px;font-size:.8rem}
+.btn-clear:hover{border-color:var(--text2);color:var(--text2)}
+
+/* Chart */
+.chart-container{position:relative;height:320px;margin-top:4px}
+
+/* Log Table */
+.log-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:.88rem}
+.log-table th{text-align:left;color:var(--text2);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;padding:10px 12px;border-bottom:1px solid var(--border)}
+.log-table td{padding:10px 12px;border-bottom:1px solid rgba(42,63,85,.4);color:var(--text)}
+.log-table tr:hover td{background:rgba(91,184,245,.04)}
+.amount-cell{font-weight:700;color:var(--rain-light);font-variant-numeric:tabular-nums}
+.notes-cell{color:var(--text2);max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.empty-state{text-align:center;color:var(--text3);padding:40px 20px;font-size:.95rem}
+.rain-icon{display:inline-block;margin-right:4px}
+
+/* Monthly summary */
+.month-bar{display:flex;align-items:center;gap:10px;padding:6px 0}
+.month-label{width:45px;font-size:.78rem;color:var(--text2);text-align:right;font-weight:600}
+.month-track{flex:1;height:22px;background:var(--surface2);border-radius:6px;overflow:hidden;position:relative}
+.month-fill{height:100%;background:linear-gradient(90deg,var(--rain-dark),var(--rain));border-radius:6px;transition:width .4s ease;min-width:2px}
+.month-val{font-size:.78rem;color:var(--text);font-weight:600;width:55px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#0f1923;padding:12px 20px;border-radius:10px;font-weight:600;font-size:.88rem;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;z-index:200}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* Responsive */
+@media(max-width:600px){
+  .header{padding:14px 16px;flex-direction:column;gap:10px;align-items:flex-start}
+  .container{padding:16px 12px}
+  .form-row{flex-direction:column}
+  .form-group input[type="number"]{width:100%}
+  .chart-container{height:240px}
+  .stat-value{font-size:1.6rem}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div>
+      <div class="logo"><span class="rain-icon">&#127783;</span> Dahlonega Rainfall</div>
+      <div class="logo-sub">Lumpkin County, Georgia &mdash; Rainfall Tracker</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <a href="index.html" class="back-link">&larr; Dashboard</a>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Stats Row -->
+  <div class="grid grid-stats" style="margin-bottom:20px">
+    <div class="card">
+      <div class="card-title">This Month</div>
+      <div class="stat-value" id="stat-month">0.00 <span class="stat-unit">in</span></div>
+      <div class="stat-detail" id="stat-month-detail">--</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Year to Date</div>
+      <div class="stat-value" id="stat-ytd">0.00 <span class="stat-unit">in</span></div>
+      <div class="stat-detail" id="stat-ytd-detail">--</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Rainy Days (This Year)</div>
+      <div class="stat-value" id="stat-days">0</div>
+      <div class="stat-detail" id="stat-days-detail">--</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Biggest Single Day</div>
+      <div class="stat-value" id="stat-max">0.00 <span class="stat-unit">in</span></div>
+      <div class="stat-detail" id="stat-max-detail">--</div>
+    </div>
+  </div>
+
+  <!-- Log Entry Form -->
+  <div class="card input-section">
+    <div class="card-title">Log Rainfall</div>
+    <form id="rain-form" class="form-row" autocomplete="off">
+      <div class="form-group">
+        <label for="entry-date">Date</label>
+        <input type="date" id="entry-date" required>
+      </div>
+      <div class="form-group">
+        <label for="entry-amount">Amount (inches)</label>
+        <input type="number" id="entry-amount" step="0.01" min="0" max="30" placeholder="0.00" required>
+      </div>
+      <div class="form-group" style="flex:1;min-width:150px">
+        <label for="entry-notes">Notes <span style="font-weight:400;text-transform:none">(optional)</span></label>
+        <input type="text" id="entry-notes" placeholder="e.g. Heavy thunderstorm">
+      </div>
+      <button type="submit" class="btn btn-primary">+ Add Entry</button>
+    </form>
+  </div>
+
+  <!-- Chart -->
+  <div class="card" style="margin-top:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div class="card-title" style="margin-bottom:0">Daily Rainfall</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-clear" onclick="setChartRange(30)">30 Days</button>
+        <button class="btn-clear" onclick="setChartRange(90)">90 Days</button>
+        <button class="btn-clear" onclick="setChartRange(365)">Year</button>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="rain-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- Monthly Summary -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-title">Monthly Totals — <span id="summary-year"></span></div>
+    <div id="monthly-summary"></div>
+  </div>
+
+  <!-- Log Table -->
+  <div class="card" style="margin-top:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+      <div class="card-title" style="margin-bottom:0">Rainfall Log</div>
+      <button class="btn-clear" onclick="exportCSV()">Export CSV</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="log-table">
+        <thead>
+          <tr><th>Date</th><th>Amount</th><th>Notes</th><th></th></tr>
+        </thead>
+        <tbody id="log-body"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="empty-state">No rainfall entries yet. Add your first reading above!</div>
+  </div>
+
+  <div style="text-align:center;margin-top:30px;padding-bottom:20px">
+    <button class="btn-danger" onclick="clearAllData()">Clear All Data</button>
+    <p style="color:var(--text3);font-size:.75rem;margin-top:8px">Data is stored locally in your browser</p>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// --- Data Layer (localStorage) ---
+const STORAGE_KEY = 'dahlonega_rainfall';
+
+function loadEntries() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch { return []; }
+}
+
+function saveEntries(entries) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+}
+
+function addEntry(date, amount, notes) {
+  const entries = loadEntries();
+  // Replace if same date exists
+  const idx = entries.findIndex(e => e.date === date);
+  const entry = { date, amount: parseFloat(amount), notes: notes || '' };
+  if (idx >= 0) entries[idx] = entry;
+  else entries.push(entry);
+  entries.sort((a, b) => b.date.localeCompare(a.date));
+  saveEntries(entries);
+  return entries;
+}
+
+function deleteEntry(date) {
+  const entries = loadEntries().filter(e => e.date !== date);
+  saveEntries(entries);
+  return entries;
+}
+
+// --- Helpers ---
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function formatDate(str) {
+  const [y,m,d] = str.split('-');
+  return MONTHS[parseInt(m)-1] + ' ' + parseInt(d) + ', ' + y;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// --- Stats ---
+function updateStats(entries) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  const thisYear = entries.filter(e => e.date.startsWith(year));
+  const thisMonth = thisYear.filter(e => parseInt(e.date.split('-')[1]) === month + 1);
+
+  const monthTotal = thisMonth.reduce((s, e) => s + e.amount, 0);
+  const ytdTotal = thisYear.reduce((s, e) => s + e.amount, 0);
+  const rainyDays = thisYear.filter(e => e.amount > 0).length;
+
+  let maxEntry = { amount: 0, date: '' };
+  entries.forEach(e => { if (e.amount > maxEntry.amount) maxEntry = e; });
+
+  document.getElementById('stat-month').innerHTML = monthTotal.toFixed(2) + ' <span class="stat-unit">in</span>';
+  document.getElementById('stat-month-detail').textContent = MONTHS[month] + ' ' + year;
+
+  document.getElementById('stat-ytd').innerHTML = ytdTotal.toFixed(2) + ' <span class="stat-unit">in</span>';
+  document.getElementById('stat-ytd-detail').textContent = thisYear.length + ' entries in ' + year;
+
+  document.getElementById('stat-days').textContent = rainyDays;
+  document.getElementById('stat-days-detail').textContent = 'out of ' + thisYear.length + ' logged days';
+
+  document.getElementById('stat-max').innerHTML = maxEntry.amount.toFixed(2) + ' <span class="stat-unit">in</span>';
+  document.getElementById('stat-max-detail').textContent = maxEntry.date ? formatDate(maxEntry.date) : '--';
+}
+
+// --- Chart ---
+let rainChart = null;
+let currentRange = 90;
+
+function setChartRange(days) {
+  currentRange = days;
+  updateChart(loadEntries());
+}
+
+function updateChart(entries) {
+  const ctx = document.getElementById('rain-chart').getContext('2d');
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - currentRange);
+  const cutoffStr = cutoff.toISOString().split('T')[0];
+
+  const filtered = entries
+    .filter(e => e.date >= cutoffStr)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const labels = filtered.map(e => e.date);
+  const data = filtered.map(e => e.amount);
+
+  if (rainChart) rainChart.destroy();
+
+  rainChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Rainfall (in)',
+        data,
+        backgroundColor: 'rgba(91,184,245,0.6)',
+        borderColor: 'rgba(91,184,245,0.9)',
+        borderWidth: 1,
+        borderRadius: 4,
+        maxBarThickness: 28
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e2d3d',
+          titleColor: '#e0eaf5',
+          bodyColor: '#a3d8ff',
+          borderColor: '#2a3f55',
+          borderWidth: 1,
+          cornerRadius: 8,
+          callbacks: {
+            title: (items) => formatDate(items[0].label),
+            label: (item) => item.parsed.y.toFixed(2) + ' inches'
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: currentRange <= 30 ? 'day' : currentRange <= 90 ? 'week' : 'month', tooltipFormat: 'yyyy-MM-dd' },
+          grid: { color: 'rgba(42,63,85,0.3)' },
+          ticks: { color: '#5a7a96', maxRotation: 0 }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(42,63,85,0.3)' },
+          ticks: { color: '#5a7a96', callback: v => v + '"' }
+        }
+      }
+    }
+  });
+}
+
+// --- Monthly Summary ---
+function updateMonthlySummary(entries) {
+  const year = new Date().getFullYear();
+  document.getElementById('summary-year').textContent = year;
+  const monthly = new Array(12).fill(0);
+  entries.filter(e => e.date.startsWith(year)).forEach(e => {
+    monthly[parseInt(e.date.split('-')[1]) - 1] += e.amount;
+  });
+  const max = Math.max(...monthly, 1);
+  const container = document.getElementById('monthly-summary');
+
+  // Dahlonega average monthly rainfall (inches) for reference
+  const avg = [5.0, 4.8, 5.3, 4.2, 4.4, 4.8, 5.1, 4.5, 4.5, 3.6, 4.8, 4.7];
+
+  container.innerHTML = monthly.map((val, i) => `
+    <div class="month-bar">
+      <span class="month-label">${MONTHS[i]}</span>
+      <div class="month-track">
+        <div class="month-fill" style="width:${(val/Math.max(max, Math.max(...avg))*100).toFixed(1)}%"></div>
+      </div>
+      <span class="month-val">${val.toFixed(2)}&Prime;</span>
+    </div>
+  `).join('');
+}
+
+// --- Log Table ---
+function updateLog(entries) {
+  const tbody = document.getElementById('log-body');
+  const empty = document.getElementById('empty-state');
+
+  if (entries.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = entries.map(e => `
+    <tr>
+      <td>${formatDate(e.date)}</td>
+      <td class="amount-cell">${e.amount.toFixed(2)}&Prime;</td>
+      <td class="notes-cell" title="${e.notes}">${e.notes || '&mdash;'}</td>
+      <td><button class="btn-danger" onclick="handleDelete('${e.date}')">Remove</button></td>
+    </tr>
+  `).join('');
+}
+
+// --- Actions ---
+function refresh() {
+  const entries = loadEntries();
+  updateStats(entries);
+  updateChart(entries);
+  updateMonthlySummary(entries);
+  updateLog(entries);
+}
+
+document.getElementById('rain-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const date = document.getElementById('entry-date').value;
+  const amount = document.getElementById('entry-amount').value;
+  const notes = document.getElementById('entry-notes').value.trim();
+
+  if (!date || !amount) return;
+
+  addEntry(date, amount, notes);
+  showToast('Rainfall logged: ' + parseFloat(amount).toFixed(2) + '" on ' + formatDate(date));
+  document.getElementById('entry-amount').value = '';
+  document.getElementById('entry-notes').value = '';
+  refresh();
+});
+
+function handleDelete(date) {
+  if (confirm('Remove entry for ' + formatDate(date) + '?')) {
+    deleteEntry(date);
+    showToast('Entry removed');
+    refresh();
+  }
+}
+
+function clearAllData() {
+  if (confirm('Are you sure? This will delete ALL rainfall data.')) {
+    localStorage.removeItem(STORAGE_KEY);
+    showToast('All data cleared');
+    refresh();
+  }
+}
+
+function exportCSV() {
+  const entries = loadEntries();
+  if (entries.length === 0) return showToast('No data to export');
+  const csv = 'Date,Amount (inches),Notes\n' +
+    entries.map(e => `${e.date},${e.amount},"${e.notes.replace(/"/g,'""')}"`).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'dahlonega_rainfall_' + todayStr() + '.csv';
+  a.click();
+  showToast('CSV exported!');
+}
+
+// --- Init ---
+document.getElementById('entry-date').value = todayStr();
+refresh();
+
+// Add some sample data if empty (for demo)
+if (loadEntries().length === 0) {
+  const sampleData = [
+    { date: '2026-03-01', amount: 0.45, notes: 'Light morning drizzle' },
+    { date: '2026-03-05', amount: 1.20, notes: 'Steady rain all day' },
+    { date: '2026-03-08', amount: 0.10, notes: 'Brief shower' },
+    { date: '2026-03-12', amount: 2.35, notes: 'Heavy thunderstorm' },
+    { date: '2026-03-15', amount: 0.75, notes: '' },
+    { date: '2026-03-19', amount: 0.30, notes: 'Afternoon drizzle' },
+    { date: '2026-03-22', amount: 1.85, notes: 'Spring storm system' },
+    { date: '2026-03-28', amount: 0.55, notes: 'Evening rain' },
+    { date: '2026-04-01', amount: 0.90, notes: 'April showers' },
+    { date: '2026-04-03', amount: 1.50, notes: 'Strong storms overnight' },
+    { date: '2026-04-05', amount: 0.25, notes: 'Light sprinkle' },
+  ];
+  saveEntries(sampleData);
+  refresh();
+}
+</script>
+</body>
+</html>
