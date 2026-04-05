@@ -78,8 +78,40 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .month-val{font-size:.78rem;color:var(--text);font-weight:600;width:55px;text-align:right;font-variant-numeric:tabular-nums}
 
 /* Toast */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#0f1923;padding:12px 20px;border-radius:10px;font-weight:600;font-size:.88rem;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;z-index:200}
-.toast.show{opacity:1;transform:translateY(0)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--green);color:#0f1923;padding:12px 20px;border-radius:10px;font-weight:600;font-size:.88rem;opacity:0;transition:all .3s;pointer-events:none;z-index:200}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Chat Panel */
+.chat-toggle{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--rain-dark),var(--rain));border:none;color:#fff;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(91,184,245,.4);transition:all .2s;z-index:300;display:flex;align-items:center;justify-content:center}
+.chat-toggle:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(91,184,245,.5)}
+.chat-toggle.open{background:var(--surface2);box-shadow:var(--shadow)}
+
+.chat-panel{position:fixed;bottom:92px;right:24px;width:400px;max-height:520px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.5);z-index:300;display:flex;flex-direction:column;opacity:0;transform:translateY(16px) scale(.96);pointer-events:none;transition:all .25s ease}
+.chat-panel.open{opacity:1;transform:translateY(0) scale(1);pointer-events:all}
+
+.chat-header{padding:16px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.chat-header-title{font-weight:700;font-size:.95rem;color:var(--rain-light)}
+.chat-header-sub{font-size:.72rem;color:var(--text3);margin-top:2px}
+
+.chat-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-height:200px;max-height:340px}
+.chat-msg{max-width:88%;padding:10px 14px;border-radius:12px;font-size:.88rem;line-height:1.45;word-wrap:break-word}
+.chat-msg.bot{background:var(--surface2);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px}
+.chat-msg.user{background:linear-gradient(135deg,var(--rain-dark),var(--rain));color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.chat-msg .msg-label{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;opacity:.6}
+.chat-msg strong{color:var(--rain-light)}
+.chat-msg.bot strong{color:var(--rain-light)}
+.chat-msg.user strong{color:#fff}
+
+.chat-input-row{padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px}
+.chat-input{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:10px;font-size:.88rem;font-family:inherit;outline:none;transition:border-color .2s}
+.chat-input:focus{border-color:var(--rain)}
+.chat-input::placeholder{color:var(--text3)}
+.chat-send{background:linear-gradient(135deg,var(--rain-dark),var(--rain));border:none;color:#fff;width:38px;height:38px;border-radius:10px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.chat-send:hover{filter:brightness(1.15)}
+
+.suggestions{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px}
+.suggestion{background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:5px 11px;border-radius:8px;font-size:.75rem;cursor:pointer;transition:all .2s}
+.suggestion:hover{border-color:var(--rain);color:var(--rain-light)}
 
 /* Responsive */
 @media(max-width:600px){
@@ -89,6 +121,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   .form-group input[type="number"]{width:100%}
   .chart-container{height:240px}
   .stat-value{font-size:1.6rem}
+  .chat-panel{right:8px;left:8px;width:auto;bottom:84px;max-height:70vh}
+  .chat-toggle{bottom:16px;right:16px}
 }
 </style>
 </head>
@@ -195,6 +229,35 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <p style="color:var(--text3);font-size:.75rem;margin-top:8px">Data is stored locally in your browser</p>
   </div>
 
+</div>
+
+<!-- Chat Toggle Button -->
+<button class="chat-toggle" id="chat-toggle" onclick="toggleChat()" title="Ask about your rainfall data">&#128172;</button>
+
+<!-- Chat Panel -->
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <div>
+      <div class="chat-header-title">&#127783; Rainfall Chat</div>
+      <div class="chat-header-sub">Ask questions about your Dahlonega rainfall data</div>
+    </div>
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="chat-msg bot">
+      <div>Hey! I can answer questions about your rainfall data. Try asking things like <strong>"how much rain in March?"</strong> or <strong>"what was the wettest day?"</strong></div>
+    </div>
+  </div>
+  <div class="suggestions" id="suggestions">
+    <span class="suggestion" onclick="askSuggestion(this)">How much rain this month?</span>
+    <span class="suggestion" onclick="askSuggestion(this)">What was the wettest day?</span>
+    <span class="suggestion" onclick="askSuggestion(this)">Compare months</span>
+    <span class="suggestion" onclick="askSuggestion(this)">Weekly average</span>
+    <span class="suggestion" onclick="askSuggestion(this)">Any dry spells?</span>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" class="chat-input" id="chat-input" placeholder="Ask about your rainfall data..." onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="chat-send" onclick="sendChat()">&#10148;</button>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -451,6 +514,307 @@ function exportCSV() {
   a.download = 'dahlonega_rainfall_' + todayStr() + '.csv';
   a.click();
   showToast('CSV exported!');
+}
+
+// --- Chat ---
+function toggleChat() {
+  const panel = document.getElementById('chat-panel');
+  const btn = document.getElementById('chat-toggle');
+  panel.classList.toggle('open');
+  btn.classList.toggle('open');
+  btn.innerHTML = panel.classList.contains('open') ? '&#10005;' : '&#128172;';
+  if (panel.classList.contains('open')) {
+    document.getElementById('chat-input').focus();
+  }
+}
+
+function askSuggestion(el) {
+  document.getElementById('chat-input').value = el.textContent;
+  sendChat();
+}
+
+function addChatMsg(text, isUser) {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + (isUser ? 'user' : 'bot');
+  div.innerHTML = text;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+  addChatMsg(q, true);
+  const answer = processQuestion(q);
+  setTimeout(() => addChatMsg(answer, false), 300);
+}
+
+function processQuestion(q) {
+  const entries = loadEntries();
+  const lq = q.toLowerCase();
+
+  if (entries.length === 0) {
+    return "You don't have any rainfall data yet. Add some entries and then ask me about them!";
+  }
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  // Parse month references
+  const monthNames = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  const monthShort = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  let queriedMonth = -1;
+  let queriedMonthName = '';
+  for (let i = 0; i < 12; i++) {
+    if (lq.includes(monthNames[i]) || (lq.includes(monthShort[i]) && !lq.includes('march').substring(0,3) === false)) {
+      if (lq.includes(monthNames[i]) || new RegExp('\\b' + monthShort[i] + '\\b').test(lq)) {
+        queriedMonth = i;
+        queriedMonthName = MONTHS[i];
+        break;
+      }
+    }
+  }
+
+  // Helper: get entries for a month
+  function monthEntries(m, y) {
+    y = y || currentYear;
+    return entries.filter(e => {
+      const [ey, em] = e.date.split('-').map(Number);
+      return ey === y && em === m + 1;
+    });
+  }
+
+  // Helper: all entries this year
+  const yearEntries = entries.filter(e => e.date.startsWith(currentYear));
+
+  // --- TOTAL / HOW MUCH ---
+  if (lq.match(/how much|total|rainfall amount|accumul/)) {
+    if (lq.includes('today')) {
+      const todayE = entries.find(e => e.date === todayStr());
+      return todayE
+        ? `Today's recorded rainfall is <strong>${todayE.amount.toFixed(2)}"</strong>.${todayE.notes ? ' Notes: ' + todayE.notes : ''}`
+        : "No rainfall recorded for today yet.";
+    }
+    if (lq.includes('year') || lq.includes('ytd')) {
+      const total = yearEntries.reduce((s, e) => s + e.amount, 0);
+      return `Year-to-date rainfall for ${currentYear}: <strong>${total.toFixed(2)}"</strong> across ${yearEntries.length} entries.`;
+    }
+    if (queriedMonth >= 0) {
+      const me = monthEntries(queriedMonth);
+      const total = me.reduce((s, e) => s + e.amount, 0);
+      return me.length > 0
+        ? `${queriedMonthName} ${currentYear} total: <strong>${total.toFixed(2)}"</strong> from ${me.length} recorded days.`
+        : `No entries for ${queriedMonthName} ${currentYear} yet.`;
+    }
+    if (lq.match(/this month|current month/)) {
+      const me = monthEntries(currentMonth);
+      const total = me.reduce((s, e) => s + e.amount, 0);
+      return `${MONTHS[currentMonth]} total so far: <strong>${total.toFixed(2)}"</strong> from ${me.length} entries.`;
+    }
+    // Default: overall
+    const total = entries.reduce((s, e) => s + e.amount, 0);
+    return `Total rainfall across all ${entries.length} entries: <strong>${total.toFixed(2)}"</strong>.`;
+  }
+
+  // --- THIS MONTH ---
+  if (lq.match(/this month|current month/) && !lq.match(/compar|vs|versus/)) {
+    const me = monthEntries(currentMonth);
+    const total = me.reduce((s, e) => s + e.amount, 0);
+    const max = me.reduce((best, e) => e.amount > best.amount ? e : best, { amount: 0 });
+    let resp = `<strong>${MONTHS[currentMonth]} ${currentYear}:</strong> ${total.toFixed(2)}" total from ${me.length} entries.`;
+    if (max.amount > 0) resp += ` Wettest day: ${formatDate(max.date)} with ${max.amount.toFixed(2)}".`;
+    return resp;
+  }
+
+  // --- SPECIFIC MONTH ---
+  if (queriedMonth >= 0 && !lq.match(/compar|vs|versus/)) {
+    const me = monthEntries(queriedMonth);
+    if (me.length === 0) return `No data for ${queriedMonthName} ${currentYear}.`;
+    const total = me.reduce((s, e) => s + e.amount, 0);
+    const max = me.reduce((best, e) => e.amount > best.amount ? e : best, { amount: 0 });
+    const avg = total / me.length;
+    return `<strong>${queriedMonthName} ${currentYear}:</strong> ${total.toFixed(2)}" total, ${me.length} entries, avg ${avg.toFixed(2)}"/day. Wettest: ${formatDate(max.date)} (${max.amount.toFixed(2)}").`;
+  }
+
+  // --- WETTEST / MAX / BIGGEST ---
+  if (lq.match(/wettest|most rain|biggest|heaviest|max|record/)) {
+    if (lq.includes('month')) {
+      const monthly = new Array(12).fill(0);
+      yearEntries.forEach(e => { monthly[parseInt(e.date.split('-')[1]) - 1] += e.amount; });
+      let maxI = 0;
+      monthly.forEach((v, i) => { if (v > monthly[maxI]) maxI = i; });
+      return monthly[maxI] > 0
+        ? `Wettest month in ${currentYear}: <strong>${MONTHS[maxI]}</strong> with ${monthly[maxI].toFixed(2)}".`
+        : "Not enough data to determine the wettest month.";
+    }
+    if (lq.includes('week')) {
+      // Find wettest 7-day window
+      const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+      let bestSum = 0, bestStart = '';
+      for (let i = 0; i < sorted.length; i++) {
+        const startDate = new Date(sorted[i].date);
+        const endDate = new Date(startDate); endDate.setDate(endDate.getDate() + 7);
+        const endStr = endDate.toISOString().split('T')[0];
+        const windowSum = sorted.filter(e => e.date >= sorted[i].date && e.date < endStr).reduce((s, e) => s + e.amount, 0);
+        if (windowSum > bestSum) { bestSum = windowSum; bestStart = sorted[i].date; }
+      }
+      return bestSum > 0
+        ? `Wettest 7-day stretch started <strong>${formatDate(bestStart)}</strong> with ${bestSum.toFixed(2)}" total.`
+        : "Not enough data for weekly analysis.";
+    }
+    // Default: wettest single day
+    const max = entries.reduce((best, e) => e.amount > best.amount ? e : best, { amount: 0, date: '' });
+    return max.date
+      ? `Wettest day on record: <strong>${formatDate(max.date)}</strong> with <strong>${max.amount.toFixed(2)}"</strong>.${max.notes ? ' (' + max.notes + ')' : ''}`
+      : "No rainfall data found.";
+  }
+
+  // --- DRIEST / MIN / LEAST ---
+  if (lq.match(/driest|least rain|lowest|minimum|lightest/)) {
+    const rainy = entries.filter(e => e.amount > 0);
+    if (rainy.length === 0) return "No rainy days recorded.";
+    const min = rainy.reduce((best, e) => e.amount < best.amount ? e : best, rainy[0]);
+    return `Lightest rainfall recorded: <strong>${formatDate(min.date)}</strong> with just <strong>${min.amount.toFixed(2)}"</strong>.${min.notes ? ' (' + min.notes + ')' : ''}`;
+  }
+
+  // --- DRY SPELL / GAP ---
+  if (lq.match(/dry spell|dry streak|gap|no rain|drought|without rain/)) {
+    const sorted = [...entries].filter(e => e.amount > 0).sort((a, b) => a.date.localeCompare(b.date));
+    if (sorted.length < 2) return "Need more rainy day entries to find dry spells.";
+    let maxGap = 0, gapStart = '', gapEnd = '';
+    for (let i = 1; i < sorted.length; i++) {
+      const d1 = new Date(sorted[i - 1].date);
+      const d2 = new Date(sorted[i].date);
+      const gap = Math.round((d2 - d1) / 86400000);
+      if (gap > maxGap) { maxGap = gap; gapStart = sorted[i - 1].date; gapEnd = sorted[i].date; }
+    }
+    return maxGap > 1
+      ? `Longest dry spell: <strong>${maxGap} days</strong> between ${formatDate(gapStart)} and ${formatDate(gapEnd)}.`
+      : "No significant dry spells found — it's been raining pretty regularly!";
+  }
+
+  // --- AVERAGE ---
+  if (lq.match(/average|avg|mean|typical/)) {
+    if (lq.includes('month')) {
+      const monthly = new Array(12).fill(0);
+      const monthlyCt = new Array(12).fill(0);
+      entries.forEach(e => {
+        const m = parseInt(e.date.split('-')[1]) - 1;
+        monthly[m] += e.amount;
+        monthlyCt[m]++;
+      });
+      const activeMths = monthly.filter((v, i) => monthlyCt[i] > 0);
+      if (activeMths.length === 0) return "No data for monthly averages.";
+      const avgMonth = monthly.reduce((s, v) => s + v, 0) / activeMths.length;
+      return `Average monthly rainfall (months with data): <strong>${avgMonth.toFixed(2)}"</strong>.`;
+    }
+    if (lq.includes('week')) {
+      const total = entries.reduce((s, e) => s + e.amount, 0);
+      const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+      const daySpan = (new Date(sorted[sorted.length - 1].date) - new Date(sorted[0].date)) / 86400000 || 1;
+      const weekAvg = total / (daySpan / 7);
+      return `Average weekly rainfall: <strong>${weekAvg.toFixed(2)}"</strong> (over ${Math.round(daySpan / 7)} weeks of data).`;
+    }
+    // Daily average
+    const rainy = entries.filter(e => e.amount > 0);
+    const avgAll = entries.reduce((s, e) => s + e.amount, 0) / entries.length;
+    const avgRainy = rainy.length > 0 ? rainy.reduce((s, e) => s + e.amount, 0) / rainy.length : 0;
+    return `Average per logged day: <strong>${avgAll.toFixed(2)}"</strong>. Average on rainy days only: <strong>${avgRainy.toFixed(2)}"</strong> (${rainy.length} rainy days).`;
+  }
+
+  // --- COMPARE MONTHS ---
+  if (lq.match(/compar|vs|versus/)) {
+    const monthly = new Array(12).fill(0);
+    const monthlyCt = new Array(12).fill(0);
+    yearEntries.forEach(e => {
+      const m = parseInt(e.date.split('-')[1]) - 1;
+      monthly[m] += e.amount;
+      monthlyCt[m]++;
+    });
+    const active = monthly.map((v, i) => ({ month: MONTHS[i], total: v, count: monthlyCt[i] })).filter(m => m.count > 0);
+    if (active.length < 2) return "Need at least 2 months of data to compare. Keep logging!";
+    active.sort((a, b) => b.total - a.total);
+    let resp = `<strong>${currentYear} Monthly Comparison:</strong><br>`;
+    active.forEach((m, i) => {
+      resp += `${i + 1}. ${m.month}: ${m.total.toFixed(2)}" (${m.count} days)<br>`;
+    });
+    return resp;
+  }
+
+  // --- HOW MANY DAYS / COUNT ---
+  if (lq.match(/how many|count|number of|rainy days|days of rain/)) {
+    if (queriedMonth >= 0) {
+      const me = monthEntries(queriedMonth);
+      const rainy = me.filter(e => e.amount > 0).length;
+      return `${queriedMonthName} ${currentYear}: <strong>${rainy} rainy days</strong> out of ${me.length} logged.`;
+    }
+    const rainy = yearEntries.filter(e => e.amount > 0).length;
+    return `In ${currentYear}: <strong>${rainy} rainy days</strong> out of ${yearEntries.length} logged days (${(rainy/Math.max(yearEntries.length,1)*100).toFixed(0)}%).`;
+  }
+
+  // --- LAST RAIN / RECENT ---
+  if (lq.match(/last rain|recent|latest|last time/)) {
+    const sorted = [...entries].filter(e => e.amount > 0).sort((a, b) => b.date.localeCompare(a.date));
+    if (sorted.length === 0) return "No rainy days recorded yet.";
+    const last = sorted[0];
+    const daysAgo = Math.round((new Date() - new Date(last.date)) / 86400000);
+    return `Last rainfall: <strong>${formatDate(last.date)}</strong> (${daysAgo === 0 ? 'today' : daysAgo + ' day' + (daysAgo !== 1 ? 's' : '') + ' ago'}) — ${last.amount.toFixed(2)}".${last.notes ? ' ' + last.notes + '.' : ''}`;
+  }
+
+  // --- TODAY ---
+  if (lq.match(/today/)) {
+    const todayE = entries.find(e => e.date === todayStr());
+    return todayE
+      ? `Today (${formatDate(todayStr())}): <strong>${todayE.amount.toFixed(2)}"</strong>.${todayE.notes ? ' ' + todayE.notes : ''}`
+      : "No entry for today. You can add one above!";
+  }
+
+  // --- SUMMARY / OVERVIEW ---
+  if (lq.match(/summary|overview|report|tell me about|what do you know|all data/)) {
+    const total = entries.reduce((s, e) => s + e.amount, 0);
+    const rainy = entries.filter(e => e.amount > 0).length;
+    const max = entries.reduce((best, e) => e.amount > best.amount ? e : best, { amount: 0, date: '' });
+    const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+    const span = sorted.length >= 2 ? formatDate(sorted[0].date) + ' to ' + formatDate(sorted[sorted.length - 1].date) : '--';
+    return `<strong>Rainfall Summary:</strong><br>` +
+      `Entries: ${entries.length} (${rainy} rainy days)<br>` +
+      `Date range: ${span}<br>` +
+      `Total rainfall: ${total.toFixed(2)}"<br>` +
+      `Wettest day: ${max.date ? formatDate(max.date) + ' (' + max.amount.toFixed(2) + '")' : '--'}<br>` +
+      `Avg per entry: ${(total / entries.length).toFixed(2)}"`;
+  }
+
+  // --- TREND ---
+  if (lq.match(/trend|increasing|decreasing|more rain|less rain|pattern/)) {
+    const monthly = new Array(12).fill(0);
+    yearEntries.forEach(e => { monthly[parseInt(e.date.split('-')[1]) - 1] += e.amount; });
+    const active = [];
+    monthly.forEach((v, i) => { if (v > 0) active.push({ month: MONTHS[i], total: v, idx: i }); });
+    if (active.length < 2) return "Need more months of data to see a trend.";
+    const first = active[0], last = active[active.length - 1];
+    const direction = last.total > first.total ? 'increasing' : last.total < first.total ? 'decreasing' : 'steady';
+    return `Rainfall trend in ${currentYear}: looks <strong>${direction}</strong>. ${first.month} had ${first.total.toFixed(2)}" and ${last.month} has ${last.total.toFixed(2)}".`;
+  }
+
+  // --- HELP / WHAT CAN YOU DO ---
+  if (lq.match(/help|what can you|what do you|how do i|commands/)) {
+    return `I can answer questions about your rainfall data! Try:<br>` +
+      `<strong>"How much rain this month?"</strong><br>` +
+      `<strong>"What was the wettest day?"</strong><br>` +
+      `<strong>"Compare months"</strong><br>` +
+      `<strong>"Weekly average"</strong><br>` +
+      `<strong>"Any dry spells?"</strong><br>` +
+      `<strong>"Give me a summary"</strong><br>` +
+      `<strong>"Last time it rained?"</strong><br>` +
+      `<strong>"How much rain in March?"</strong>`;
+  }
+
+  // --- FALLBACK ---
+  return `I'm not sure how to answer that. Try asking about <strong>totals</strong>, <strong>averages</strong>, <strong>wettest days</strong>, <strong>dry spells</strong>, or <strong>monthly comparisons</strong>. Or just say <strong>"help"</strong> to see all the things I can do!`;
 }
 
 // --- Init ---
