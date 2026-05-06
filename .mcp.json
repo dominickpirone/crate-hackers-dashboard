@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "stape": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.stape.ai/mcp",
+        "--header",
+        "Authorization: ${STAPE_API_KEY}"
+      ]
+    }
+  }
+}
