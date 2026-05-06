@@ -12,3 +12,8 @@ Thumbs.db
 
 # Claude local config
 .claude/
+
+# Environment / secrets - never commit
+.env
+.env.local
+.env.*.local
