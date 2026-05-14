@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Crate Hackers | Executive Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <style>
@@ -221,7 +222,15 @@ a{color:var(--blue);text-decoration:none}
       <input type="file" accept=".csv" id="subFile">
       <div class="status" id="subStatus"></div>
     </label>
+    <label class="upload-box" id="cmoUpload">
+      <div class="icon">&#128202;</div>
+      <h3>CMO Dashboard</h3>
+      <p>Weekly numbers XLSX or CSV</p>
+      <input type="file" accept=".xlsx,.xls,.csv" id="cmoFile">
+      <div class="status" id="cmoStatus"></div>
+    </label>
   </div>
+  <p style="color:var(--text3);font-size:.78rem;margin-top:-8px">CMO sheet is optional — adds ad spend, CAC, LTV:CAC, and conversion metrics</p>
   <button id="buildBtn" style="padding:12px 32px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:1rem;font-weight:600;cursor:pointer;opacity:.5;pointer-events:none;transition:all .2s">Build Dashboard</button>
 </section>
 
@@ -319,6 +328,72 @@ a{color:var(--blue);text-decoration:none}
         <div class="ec-value" id="exRefunds">--</div>
         <div class="ec-detail" id="exRefundsDetail"></div>
         <div class="ec-badge" id="exRefundsBadge"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CMO Metrics (shown when CMO sheet uploaded) -->
+  <div class="exec-section" id="exCMOSection" style="display:none">
+    <div class="exec-section-label">Ad Spend &amp; Acquisition (CMO Sheet)</div>
+    <div class="exec-grid">
+      <div class="exec-card accent-purple">
+        <div class="ec-label">Total Ad Spend</div>
+        <div class="ec-value" id="exAdSpend">--</div>
+        <div class="ec-detail" id="exAdSpendDetail"></div>
+      </div>
+      <div class="exec-card accent-purple">
+        <div class="ec-label">LTV : CAC (Blended)</div>
+        <div class="ec-value" id="exLTVCAC">--</div>
+        <div class="ec-detail" id="exLTVCACDetail"></div>
+        <div class="ec-badge" id="exLTVCACBadge"></div>
+      </div>
+      <div class="exec-card accent-purple">
+        <div class="ec-label">Net CAC</div>
+        <div class="ec-value" id="exNetCAC">--</div>
+        <div class="ec-detail" id="exNetCACDetail"></div>
+        <div class="ec-badge" id="exNetCACBadge"></div>
+      </div>
+      <div class="exec-card accent-purple">
+        <div class="ec-label">CAC Payback</div>
+        <div class="ec-value" id="exCACPayback">--</div>
+        <div class="ec-detail" id="exCACPaybackDetail"></div>
+      </div>
+      <div class="exec-card accent-orange">
+        <div class="ec-label">CPA &mdash; Crate Hackers</div>
+        <div class="ec-value" id="exCPACH">--</div>
+        <div class="ec-detail" id="exCPACHDetail"></div>
+      </div>
+      <div class="exec-card accent-orange">
+        <div class="ec-label">CPA &mdash; Banger Button</div>
+        <div class="ec-value" id="exCPABB">--</div>
+        <div class="ec-detail" id="exCPABBDetail"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conversion Metrics (shown when CMO sheet uploaded) -->
+  <div class="exec-section" id="exConvSection" style="display:none">
+    <div class="exec-section-label">Conversion &amp; Funnel</div>
+    <div class="exec-grid">
+      <div class="exec-card">
+        <div class="ec-label">CH Home Page Conversion</div>
+        <div class="ec-value" id="exConvCH">--</div>
+        <div class="ec-detail" id="exConvCHDetail"></div>
+      </div>
+      <div class="exec-card">
+        <div class="ec-label">BB Home Page Conversion</div>
+        <div class="ec-value" id="exConvBB">--</div>
+        <div class="ec-detail" id="exConvBBDetail"></div>
+      </div>
+      <div class="exec-card">
+        <div class="ec-label">CH Earnings Per Click</div>
+        <div class="ec-value" id="exEPCCH">--</div>
+        <div class="ec-detail" id="exEPCCHDetail"></div>
+      </div>
+      <div class="exec-card">
+        <div class="ec-label">BB Earnings Per Click</div>
+        <div class="ec-value" id="exEPCBB">--</div>
+        <div class="ec-detail" id="exEPCBBDetail"></div>
       </div>
     </div>
   </div>
@@ -466,8 +541,10 @@ a{color:var(--blue);text-decoration:none}
 const STATE = {
   txnFile: null,
   subFile: null,
+  cmoFile: null,
   period: 365, // days
   view: 'exec', // 'exec' or 'health'
+  cmo: {}, // {monthKey: {metrics...}} from CMO dashboard xlsx
   // Aggregated transaction data
   monthly: {},       // {YYYY-MM: {sales, rebills, cancellations, ...}}
   totals: {sales:0,rebills:0,cancellations:0,requestCan:0,refunds:0,chargebacks:0,partialRefunds:0,failed:0,revertCan:0},
@@ -533,22 +610,22 @@ function ensureMonth(m){
 // ============================================================
 const txnUpload=document.getElementById('txnUpload');
 const subUpload=document.getElementById('subUpload');
+const cmoUpload=document.getElementById('cmoUpload');
 const txnFile=document.getElementById('txnFile');
 const subFile=document.getElementById('subFile');
+const cmoFile=document.getElementById('cmoFile');
 const buildBtn=document.getElementById('buildBtn');
 
-['dragover','dragenter'].forEach(e=>{
-  txnUpload.addEventListener(e,ev=>{ev.preventDefault();txnUpload.classList.add('dragover')});
-  subUpload.addEventListener(e,ev=>{ev.preventDefault();subUpload.classList.add('dragover')});
-});
-['dragleave','drop'].forEach(e=>{
-  txnUpload.addEventListener(e,()=>txnUpload.classList.remove('dragover'));
-  subUpload.addEventListener(e,()=>subUpload.classList.remove('dragover'));
+[txnUpload,subUpload,cmoUpload].forEach(box=>{
+  ['dragover','dragenter'].forEach(e=>box.addEventListener(e,ev=>{ev.preventDefault();box.classList.add('dragover')}));
+  ['dragleave','drop'].forEach(e=>box.addEventListener(e,()=>box.classList.remove('dragover')));
 });
 txnUpload.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files[0]){txnFile.files=e.dataTransfer.files;onTxnFile()}});
 subUpload.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files[0]){subFile.files=e.dataTransfer.files;onSubFile()}});
+cmoUpload.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files[0]){cmoFile.files=e.dataTransfer.files;onCmoFile()}});
 txnFile.addEventListener('change',onTxnFile);
 subFile.addEventListener('change',onSubFile);
+cmoFile.addEventListener('change',onCmoFile);
 
 function onTxnFile(){
   STATE.txnFile=txnFile.files[0];
@@ -561,6 +638,11 @@ function onSubFile(){
   document.getElementById('subStatus').textContent='Loaded: '+STATE.subFile.name+' ('+Math.round(STATE.subFile.size/1024/1024)+'MB)';
   subUpload.classList.add('loaded');
   checkReady();
+}
+function onCmoFile(){
+  STATE.cmoFile=cmoFile.files[0];
+  document.getElementById('cmoStatus').textContent='Loaded: '+STATE.cmoFile.name;
+  cmoUpload.classList.add('loaded');
 }
 function checkReady(){
   if(STATE.txnFile&&STATE.subFile){buildBtn.style.opacity='1';buildBtn.style.pointerEvents='auto'}
@@ -579,10 +661,16 @@ async function processData(){
   await parseTransactions();
 
   // Phase 2: Parse subscriptions
-  updateProgress(80,'Processing subscriptions...');
+  updateProgress(75,'Processing subscriptions...');
   await parseSubscriptions();
 
-  // Phase 3: Build dashboard
+  // Phase 3: Parse CMO sheet (optional)
+  if(STATE.cmoFile){
+    updateProgress(85,'Processing CMO dashboard...');
+    await parseCMOSheet(STATE.cmoFile);
+  }
+
+  // Phase 4: Build dashboard
   updateProgress(95,'Rendering dashboard...');
   await new Promise(r=>setTimeout(r,100));
 
@@ -785,6 +873,132 @@ function parseKartraDate(s){
 }
 
 // ============================================================
+// CMO SHEET PARSER
+// ============================================================
+function parseCMOSheet(file){
+  return new Promise((resolve)=>{
+    const reader=new FileReader();
+    reader.onload=function(e){
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const monthMap={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12',
+          january:'01',february:'02',march:'03',april:'04',june:'06',july:'07',august:'08',september:'09',october:'10',november:'11',december:'12'};
+
+        wb.SheetNames.forEach(name=>{
+          if(name==='MONTH YEAR TEMPLATE'||name==='Example')return;
+          // Parse sheet name like "May 2026", "Apr 2026", "SEP 2024"
+          const parts=name.trim().split(/\s+/);
+          if(parts.length<2)return;
+          const monthStr=parts[0].toLowerCase();
+          const yearStr=parts[1];
+          const mm=monthMap[monthStr];
+          if(!mm||!yearStr)return;
+          const key=yearStr+'-'+mm; // "2026-05"
+
+          const ws=wb.Sheets[name];
+          const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+
+          // Build metric lookup: find value in col A, grab weekly cols + H (actual), I (target), J (status)
+          const metrics={};
+          const weekLabels=[];
+          if(rows[0]){
+            for(let c=1;c<=5;c++){
+              const v=rows[0][c];
+              if(v)weekLabels.push(String(v).trim());
+            }
+          }
+          metrics._weeks=weekLabels;
+
+          // Metric name patterns to extract
+          const wanted={
+            totalRevenue:/^total revenue/i,
+            netProfit:/^total.*net profit/i,
+            rebills:/^amount of rebills/i,
+            chRevenue:/^total ch software/i,
+            bbRevenue:/^total.*banger button/i,
+            activeSubs:/^active subscribers.*per kartra/i,
+            pendingCancel:/^pending cancel/i,
+            actualActive:/^actual active/i,
+            bbActiveSubs:/^banger button active/i,
+            blendedLTV:/^blended.*ltv/i,
+            kartraLTV:/^kartra ltv/i,
+            retention:/^average retention/i,
+            metaSpend:/^total meta ad spend/i,
+            googleSpend:/^google ad spend/i,
+            totalAdSpend:/^total ad spend/i,
+            bbAdSpend:/^ad spend for banger/i,
+            chAdSpend:/^ad spend for crate hackers/i,
+            newSalesRevAll:/^amount of new sales.*all.*revenue|^amount of new sales.*total/i,
+            newSalesRevCH:/^amount of new sales.*crate hackers only|^amount of new sales.*crate hackers pro only/i,
+            newSalesRevBB:/^amount of new sales.*banger button/i,
+            plusLossAdSpend:/^plus or loss on ad spend/i,
+            newCustCH:/^# new crate hackers only|^# new customers.*total/i,
+            newCustBB:/^# new banger button/i,
+            trials:/^# of.*trials/i,
+            cpaCH:/^cost per acquisition for crate hackers|^cost per acquisition.*sales/i,
+            cpaBB:/^cost per acquisition for banger/i,
+            netCAC:/^net cac/i,
+            ltvCAC:/^ltv.*cac.*blended/i,
+            blendedARPU:/^blended arpu/i,
+            cacPayback:/^cac payback/i,
+            aovCH:/^average order value.*crate hackers/i,
+            aovBB:/^average order value.*banger button/i,
+            pageVisitorsCH:/^page visitors to all crate hackers/i,
+            homeVisitorsCH:/^visitors to cratehackers.com home/i,
+            homeConvCH:/^home page conversion.*cratehackers/i,
+            homeVisitorsBB:/^visitors to bangerbutton.com home/i,
+            homeConvBB:/^home page conversion.*bangerbutton/i,
+            epcCH:/^earnings per click.*cratehackers/i,
+            epcBB:/^earnings per click.*bangerbutton/i,
+            netSubsCH:/^new paid subscribers added.*ch|^new paid subscribers added.*crate hackers/i,
+            netSubsBB:/^new paid subscribers added.*bb/i,
+          };
+
+          rows.forEach(row=>{
+            if(!row||!row[0])return;
+            const label=String(row[0]).trim();
+            for(const[metricKey,pattern]of Object.entries(wanted)){
+              if(pattern.test(label)){
+                const weekVals=[];
+                for(let c=1;c<=5;c++){
+                  const v=row[c];
+                  weekVals.push(v!=null?parseFloat(v)||0:null);
+                }
+                metrics[metricKey]={
+                  label,
+                  weeks:weekVals.filter(v=>v!==null),
+                  actual:row[7]!=null?parseFloat(String(row[7]).replace(/[^0-9.\-]/g,''))||0:null,
+                  target:row[8]!=null?parseFloat(String(row[8]).replace(/[^0-9.\-]/g,''))||0:null,
+                  status:row[9]?String(row[9]).trim():null,
+                  notes:row[12]?String(row[12]).trim():null
+                };
+                break;
+              }
+            }
+          });
+
+          STATE.cmo[key]=metrics;
+        });
+      }catch(err){console.error('CMO parse error:',err)}
+      resolve();
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function getCMOLatest(){
+  const keys=Object.keys(STATE.cmo).sort();
+  if(!keys.length)return null;
+  return{key:keys[keys.length-1],data:STATE.cmo[keys[keys.length-1]]};
+}
+
+function getCMOPrior(){
+  const keys=Object.keys(STATE.cmo).sort();
+  if(keys.length<2)return null;
+  return{key:keys[keys.length-2],data:STATE.cmo[keys[keys.length-2]]};
+}
+
+// ============================================================
 // RENDER DASHBOARD
 // ============================================================
 function renderDashboard(){
@@ -970,6 +1184,9 @@ function renderExecSummary(){
   else if(rfPct>0.02){rfBadge.textContent='Moderate';rfBadge.className='ec-badge warn'}
   else{rfBadge.textContent='Healthy';rfBadge.className='ec-badge'}
 
+  // --- CMO METRICS ---
+  renderExecCMO();
+
   // --- CHARTS ---
   renderExecCharts(allMonths);
 
@@ -977,6 +1194,130 @@ function renderExecSummary(){
   renderExecNarratives(lastM,prevM,lastMonthKey,mrr,prevMrr,churnRate,totalSubs,lastRefunds,lastGross);
 
   document.getElementById('exSourceDate').textContent=endDate?'As of '+endDate:'';
+  if(Object.keys(STATE.cmo).length>0){
+    document.getElementById('exSourceDate').textContent+=' · CMO sheet loaded';
+  }
+}
+
+function renderExecCMO(){
+  const latest=getCMOLatest();
+  if(!latest){
+    document.getElementById('exCMOSection').style.display='none';
+    document.getElementById('exConvSection').style.display='none';
+    return;
+  }
+  document.getElementById('exCMOSection').style.display='';
+  document.getElementById('exConvSection').style.display='';
+  const d=latest.data;
+  const prior=getCMOPrior();
+  const pd=prior?prior.data:null;
+
+  // Helper to get the latest week value from a metric
+  function lastWeek(m){if(!m||!m.weeks||!m.weeks.length)return null;return m.weeks[m.weeks.length-1]}
+  function statusBadge(m){
+    if(!m||!m.status)return '';
+    const s=m.status.toLowerCase();
+    if(s==='green'||s==='light green')return 'ec-badge';
+    if(s==='yellow')return 'ec-badge warn';
+    return 'ec-badge negative';
+  }
+
+  // Ad Spend
+  const adSpend=d.totalAdSpend;
+  if(adSpend){
+    const lw=lastWeek(adSpend);
+    document.getElementById('exAdSpend').textContent=adSpend.actual!=null?fmtK(adSpend.actual):(lw!=null?fmtK(lw):'--');
+    const meta=d.metaSpend?.actual||0;
+    const google=d.googleSpend?.actual||0;
+    document.getElementById('exAdSpendDetail').textContent='Meta '+fmtK(meta)+' + Google '+fmtK(google)+(adSpend.target?' · Target '+fmtK(adSpend.target):'');
+  }
+
+  // LTV:CAC
+  const ltvcac=d.ltvCAC;
+  if(ltvcac){
+    const lw=lastWeek(ltvcac);
+    const val=lw!=null?lw:(ltvcac.actual||0);
+    document.getElementById('exLTVCAC').textContent=val.toFixed(2)+'x';
+    document.getElementById('exLTVCACDetail').textContent=ltvcac.notes||'';
+    const badge=document.getElementById('exLTVCACBadge');
+    if(val>=5){badge.textContent='Scale aggressively';badge.className='ec-badge'}
+    else if(val>=3){badge.textContent='Healthy';badge.className='ec-badge'}
+    else{badge.textContent='Below 3x — optimize';badge.className='ec-badge warn'}
+  }
+
+  // Net CAC
+  const netcac=d.netCAC;
+  if(netcac){
+    const lw=lastWeek(netcac);
+    const val=lw!=null?lw:(netcac.actual||0);
+    document.getElementById('exNetCAC').textContent=fmt(val);
+    const badge=document.getElementById('exNetCACBadge');
+    if(val<0){
+      document.getElementById('exNetCACDetail').textContent='Day-1 profitable — customers pay for themselves on first charge';
+      badge.textContent='Day-1 profitable';badge.className='ec-badge';
+    }else{
+      document.getElementById('exNetCACDetail').textContent=netcac.notes||'';
+      badge.textContent=val>20?'High — monitor':'Moderate';
+      badge.className=val>20?'ec-badge warn':'ec-badge';
+    }
+  }
+
+  // CAC Payback
+  const payback=d.cacPayback;
+  if(payback){
+    const lw=lastWeek(payback);
+    const val=lw!=null?lw:(payback.actual||0);
+    document.getElementById('exCACPayback').textContent=val.toFixed(2)+' wk';
+    document.getElementById('exCACPaybackDetail').textContent=val<0?'Paid back before Day 7. Front-end revenue exceeds ad spend.':'Weeks to recover acquisition cost';
+  }
+
+  // CPA CH
+  const cpaCH=d.cpaCH;
+  if(cpaCH){
+    const lw=lastWeek(cpaCH);
+    const val=lw!=null?lw:(cpaCH.actual||0);
+    document.getElementById('exCPACH').textContent=fmt(val);
+    document.getElementById('exCPACHDetail').textContent=cpaCH.target?'Target: '+fmt(cpaCH.target):'';
+  }
+
+  // CPA BB
+  const cpaBB=d.cpaBB;
+  if(cpaBB){
+    const lw=lastWeek(cpaBB);
+    const val=lw!=null?lw:(cpaBB.actual||0);
+    document.getElementById('exCPABB').textContent=fmt(val);
+    document.getElementById('exCPABBDetail').textContent=cpaBB.target?'Target: '+fmt(cpaBB.target):'';
+  }
+
+  // Conversions
+  const convCH=d.homeConvCH;
+  if(convCH){
+    const lw=lastWeek(convCH);
+    const val=lw!=null?lw:(convCH.actual||0);
+    document.getElementById('exConvCH').textContent=fmtPct(val);
+    document.getElementById('exConvCHDetail').textContent=(convCH.target?'Target: '+fmtPct(convCH.target):'')+(convCH.notes?' · '+convCH.notes:'');
+  }
+  const convBB=d.homeConvBB;
+  if(convBB){
+    const lw=lastWeek(convBB);
+    const val=lw!=null?lw:(convBB.actual||0);
+    document.getElementById('exConvBB').textContent=fmtPct(val);
+    document.getElementById('exConvBBDetail').textContent=convBB.target?'Target: '+fmtPct(convBB.target):'';
+  }
+  const epcCH=d.epcCH;
+  if(epcCH){
+    const lw=lastWeek(epcCH);
+    const val=lw!=null?lw:(epcCH.actual||0);
+    document.getElementById('exEPCCH').textContent='$'+val.toFixed(2);
+    document.getElementById('exEPCCHDetail').textContent=epcCH.target?'Target: $'+epcCH.target.toFixed(2):'';
+  }
+  const epcBB=d.epcBB;
+  if(epcBB){
+    const lw=lastWeek(epcBB);
+    const val=lw!=null?lw:(epcBB.actual||0);
+    document.getElementById('exEPCBB').textContent='$'+val.toFixed(2);
+    document.getElementById('exEPCBBDetail').textContent=epcBB.target?'Target: $'+epcBB.target.toFixed(2):'';
+  }
 }
 
 function renderExecCharts(allMonths){
@@ -1089,6 +1430,36 @@ function renderExecNarratives(lastM,prevM,lastMonthKey,mrr,prevMrr,churnRate,tot
   const prevCanc=prevM?(prevM.cancellationCount+prevM.requestCanCount):0;
   if(lastCanc<prevCanc&&prevCanc>0) working.push('<strong>Cancellations down '+(((prevCanc-lastCanc)/prevCanc)*100).toFixed(0)+'%.</strong> <span>'+fmtN(lastCanc)+' vs '+fmtN(prevCanc)+' prior month.</span>');
   if(lastCanc>prevCanc&&prevCanc>0) watch.push('<strong>Cancellations up '+(((lastCanc-prevCanc)/prevCanc)*100).toFixed(0)+'%.</strong> <span>'+fmtN(lastCanc)+' vs '+fmtN(prevCanc)+' prior month.</span>');
+
+  // CMO-derived insights
+  const cmoLatest=getCMOLatest();
+  if(cmoLatest){
+    const cd=cmoLatest.data;
+    const ltvCac=cd.ltvCAC;
+    if(ltvCac){
+      const lastWk=ltvCac.weeks?.length?ltvCac.weeks[ltvCac.weeks.length-1]:(ltvCac.actual||0);
+      if(lastWk>=5)working.push('<strong>LTV:CAC at '+lastWk.toFixed(2)+'x is in "scale aggressively" territory.</strong> <span>Anything over 5 means push harder on spend.</span>');
+      else if(lastWk>=3&&lastWk<5)watch.push('<strong>LTV:CAC at '+lastWk.toFixed(2)+'x.</strong> <span>Healthy but below the 5x "scale aggressively" threshold.</span>');
+      else if(lastWk<3)watch.push('<strong>LTV:CAC at '+lastWk.toFixed(2)+'x.</strong> <span>Below 3x — optimize acquisition costs before scaling.</span>');
+    }
+    const adLoss=cd.plusLossAdSpend;
+    if(adLoss){
+      const lastWk=adLoss.weeks?.length?adLoss.weeks[adLoss.weeks.length-1]:(adLoss.actual||0);
+      if(lastWk>0)working.push('<strong>+'+fmt(lastWk)+' surplus on ad spend.</strong> <span>New customer revenue exceeds acquisition cost.</span>');
+      if(lastWk<0)watch.push('<strong>'+fmt(lastWk)+' loss on ad spend.</strong> <span>Acquisition cost exceeds first-charge revenue.</span>');
+    }
+    const convCH=cd.homeConvCH;
+    if(convCH){
+      const val=convCH.weeks?.length?convCH.weeks[convCH.weeks.length-1]:(convCH.actual||0);
+      const target=convCH.target||0.04;
+      if(val<target)watch.push('<strong>CH home page conversion at '+fmtPct(val)+'.</strong> <span>'+(val<target?'Below target of '+fmtPct(target)+' — keep testing.':'On target.')+'</span>');
+    }
+    const trials=cd.trials;
+    if(trials){
+      const lastWk=trials.weeks?.length?trials.weeks[trials.weeks.length-1]:0;
+      if(lastWk>0&&lastWk<25)watch.push('<strong>Trials at '+lastWk+'/week.</strong> <span>Worth re-testing trial offers to boost volume.</span>');
+    }
+  }
 
   if(working.length===0) working.push('<strong>Data processed.</strong> <span>Add more months of data for richer insights.</span>');
   if(watch.length===0) watch.push('<strong>No major concerns detected.</strong> <span>All metrics look stable.</span>');
