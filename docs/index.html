@@ -126,6 +126,60 @@ a{color:var(--blue);text-decoration:none}
 .badge-yellow{background:rgba(251,191,36,.12);color:#b45309}
 .badge-blue{background:rgba(74,158,255,.1);color:#2563eb}
 
+/* VIEW TOGGLE */
+.view-toggle{display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:3px}
+.view-btn{padding:7px 18px;border-radius:8px;border:none;background:transparent;color:var(--text2);cursor:pointer;font-size:.82rem;font-weight:600;transition:all .15s;font-family:inherit}
+.view-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.view-btn:hover:not(.active){color:var(--text)}
+
+/* EXEC SUMMARY */
+.exec-summary{display:none;padding:32px 40px;max-width:960px;margin:0 auto}
+.exec-header{margin-bottom:32px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.exec-header h1{font-size:1.7rem;font-weight:800;color:var(--text);margin-bottom:4px}
+.exec-header p{color:var(--text3);font-size:.88rem}
+
+.exec-section{margin-bottom:28px}
+.exec-section-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text2);margin-bottom:14px}
+
+.exec-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.exec-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:20px 24px;box-shadow:var(--shadow)}
+.exec-card.full{grid-column:1/-1}
+.exec-card .ec-label{font-size:.7rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:8px}
+.exec-card .ec-value{font-size:2.1rem;font-weight:800;color:var(--text);line-height:1.1}
+.exec-card .ec-detail{font-size:.8rem;color:var(--text3);margin-top:6px;line-height:1.5}
+.exec-card .ec-badge{display:inline-block;background:rgba(45,212,168,.12);color:#0d9668;padding:3px 10px;border-radius:6px;font-size:.72rem;font-weight:600;margin-top:6px}
+.exec-card .ec-badge.warn{background:rgba(245,158,11,.1);color:#b45309}
+.exec-card .ec-badge.negative{background:rgba(239,68,68,.08);color:#dc2626}
+
+.exec-card.accent-blue{border-left-color:var(--blue)}
+.exec-card.accent-purple{border-left-color:var(--purple)}
+.exec-card.accent-orange{border-left-color:var(--orange)}
+.exec-card.accent-red{border-left-color:var(--red)}
+
+/* Exec chart cards */
+.exec-chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;box-shadow:var(--shadow)}
+.exec-chart-card h3{font-size:1rem;font-weight:700;color:var(--text);margin-bottom:4px}
+.exec-chart-card p{font-size:.78rem;color:var(--text3);margin-bottom:16px;line-height:1.4}
+.exec-chart-wrap{position:relative;height:280px}
+
+/* Narrative cards */
+.narrative-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px;margin-bottom:16px;box-shadow:var(--shadow)}
+.narrative-card h3{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text2);margin-bottom:14px}
+.narrative-card ul{list-style:disc;padding-left:20px}
+.narrative-card li{font-size:.88rem;color:var(--text);line-height:1.55;margin-bottom:8px}
+.narrative-card li strong{color:var(--text)}
+.narrative-card li span{color:var(--text2)}
+
+.exec-footer{text-align:center;padding:24px;color:var(--text3);font-size:.73rem;border-top:1px solid var(--border);margin-top:36px}
+
+@media(max-width:600px){
+  .exec-summary{padding:20px 14px}
+  .exec-grid{grid-template-columns:1fr}
+  .exec-card .ec-value{font-size:1.6rem}
+  .view-toggle{width:100%}
+  .view-btn{flex:1;text-align:center;font-size:.75rem;padding:7px 10px}
+}
+
 /* HIDDEN */
 .hidden{display:none!important}
 </style>
@@ -140,7 +194,11 @@ a{color:var(--blue);text-decoration:none}
     </div>
   </div>
   <div class="header-right" id="headerControls" style="display:none">
-    <span style="color:var(--text2);font-size:.8rem" id="dataRange"></span>
+    <div class="view-toggle" id="viewToggle">
+      <button class="view-btn active" data-view="exec" onclick="switchView('exec')">Exec Summary</button>
+      <button class="view-btn" data-view="health" onclick="switchView('health')">Weekly Health</button>
+    </div>
+    <span style="color:var(--text3);font-size:.78rem" id="dataRange"></span>
   </div>
 </header>
 
@@ -174,8 +232,136 @@ a{color:var(--blue);text-decoration:none}
   <p class="loading-text" id="loadingText">Initializing...</p>
 </div>
 
-<!-- DASHBOARD -->
-<main class="dashboard" id="dashboard">
+<!-- EXEC SUMMARY VIEW -->
+<section class="exec-summary" id="execSummary">
+  <div class="exec-header">
+    <h1 id="execTitle">Crate Hackers &mdash; Executive Summary</h1>
+    <p id="execSubtitle"></p>
+  </div>
+
+  <!-- Headlines -->
+  <div class="exec-section">
+    <div class="exec-section-label">The Headlines</div>
+    <div class="exec-grid">
+      <div class="exec-card">
+        <div class="ec-label">Current MRR / ARR</div>
+        <div class="ec-value" id="exMRR">--</div>
+        <div class="ec-detail" id="exMRRDetail"></div>
+        <div class="ec-badge" id="exMRRBadge"></div>
+      </div>
+      <div class="exec-card">
+        <div class="ec-label">Active Subscribers</div>
+        <div class="ec-value" id="exSubs">--</div>
+        <div class="ec-detail" id="exSubsDetail"></div>
+        <div class="ec-badge" id="exSubsBadge"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Forecast -->
+  <div class="exec-section">
+    <div class="exec-section-label" id="exForecastLabel">Monthly Forecast</div>
+    <div class="exec-grid">
+      <div class="exec-card">
+        <div class="ec-label">Rebills Scheduled</div>
+        <div class="ec-value" id="exRebills">--</div>
+        <div class="ec-detail" id="exRebillsDetail"></div>
+        <div class="ec-badge" id="exRebillsBadge"></div>
+      </div>
+      <div class="exec-card">
+        <div class="ec-label">Full Month Revenue Forecast</div>
+        <div class="ec-value" id="exForecast">--</div>
+        <div class="ec-detail" id="exForecastDetail"></div>
+        <div class="ec-badge" id="exForecastBadge"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Last Period Performance -->
+  <div class="exec-section">
+    <div class="exec-section-label" id="exPerfLabel">Last Month's Performance</div>
+    <div class="exec-grid">
+      <div class="exec-card">
+        <div class="ec-label">Net Revenue</div>
+        <div class="ec-value" id="exNetRev">--</div>
+        <div class="ec-detail" id="exNetRevDetail"></div>
+        <div class="ec-badge" id="exNetRevBadge"></div>
+      </div>
+      <div class="exec-card">
+        <div class="ec-label">New Customers</div>
+        <div class="ec-value" id="exNewCust">--</div>
+        <div class="ec-detail" id="exNewCustDetail"></div>
+      </div>
+      <div class="exec-card full">
+        <div class="ec-label">Cancellations</div>
+        <div class="ec-value" id="exCanc">--</div>
+        <div class="ec-detail" id="exCancDetail"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unit Economics -->
+  <div class="exec-section">
+    <div class="exec-section-label">Unit Economics</div>
+    <div class="exec-grid">
+      <div class="exec-card accent-blue">
+        <div class="ec-label">Avg Revenue Per User</div>
+        <div class="ec-value" id="exARPU">--</div>
+        <div class="ec-detail" id="exARPUDetail"></div>
+      </div>
+      <div class="exec-card accent-blue">
+        <div class="ec-label">Monthly Churn Rate</div>
+        <div class="ec-value" id="exChurn">--</div>
+        <div class="ec-detail" id="exChurnDetail"></div>
+      </div>
+      <div class="exec-card accent-blue full">
+        <div class="ec-label">Refunds &amp; Chargebacks</div>
+        <div class="ec-value" id="exRefunds">--</div>
+        <div class="ec-detail" id="exRefundsDetail"></div>
+        <div class="ec-badge" id="exRefundsBadge"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Charts -->
+  <div class="exec-section">
+    <div class="exec-section-label">Trends</div>
+    <div class="exec-chart-card">
+      <h3>Monthly Revenue vs Net Profit</h3>
+      <p>Green bars = revenue. Purple line = net profit after refunds &amp; chargebacks.</p>
+      <div class="exec-chart-wrap"><canvas id="exChartRevProfit"></canvas></div>
+    </div>
+    <div class="exec-chart-card">
+      <h3>Active Subscribers &mdash; 12 Month Trend</h3>
+      <p>Total active + pending-cancellation subscribers over time.</p>
+      <div class="exec-chart-wrap"><canvas id="exChartSubTrend"></canvas></div>
+    </div>
+    <div class="exec-chart-card">
+      <h3>Churn Rate &mdash; Last 6 Months</h3>
+      <p>Monthly churn %. Lower is better.</p>
+      <div class="exec-chart-wrap"><canvas id="exChartChurn"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Narrative -->
+  <div class="exec-section">
+    <div class="narrative-card" id="execWorking">
+      <h3>What's Working</h3>
+      <ul id="exWorkingList"></ul>
+    </div>
+    <div class="narrative-card" id="execWatch">
+      <h3>What to Watch</h3>
+      <ul id="exWatchList"></ul>
+    </div>
+  </div>
+
+  <div class="exec-footer">
+    Source: Kartra subscription &amp; transaction data &middot; <span id="exSourceDate"></span>
+  </div>
+</section>
+
+<!-- WEEKLY HEALTH VIEW (DASHBOARD) -->
+<main class="dashboard" id="dashboard" style="display:none">
   <!-- Period Selector -->
   <div class="period-bar">
     <label>Period:</label>
@@ -281,6 +467,7 @@ const STATE = {
   txnFile: null,
   subFile: null,
   period: 365, // days
+  view: 'exec', // 'exec' or 'health'
   // Aggregated transaction data
   monthly: {},       // {YYYY-MM: {sales, rebills, cancellations, ...}}
   totals: {sales:0,rebills:0,cancellations:0,requestCan:0,refunds:0,chargebacks:0,partialRefunds:0,failed:0,revertCan:0},
@@ -400,9 +587,8 @@ async function processData(){
   await new Promise(r=>setTimeout(r,100));
 
   overlay.classList.add('hidden');
-  document.getElementById('dashboard').style.display='block';
   document.getElementById('headerControls').style.display='flex';
-  renderDashboard();
+  switchView('exec');
 }
 
 function updateProgress(pct,text){
@@ -638,6 +824,277 @@ function renderDashboard(){
       renderDashboard();
     });
   });
+}
+
+// ============================================================
+// VIEW SWITCHER
+// ============================================================
+function switchView(view){
+  STATE.view=view;
+  document.querySelectorAll('.view-btn').forEach(b=>{
+    b.classList.toggle('active',b.dataset.view===view);
+  });
+  const exec=document.getElementById('execSummary');
+  const health=document.getElementById('dashboard');
+  if(view==='exec'){
+    exec.style.display='block';
+    health.style.display='none';
+    renderExecSummary();
+  }else{
+    exec.style.display='none';
+    health.style.display='block';
+    renderDashboard();
+  }
+  // Date range label
+  if(STATE.txnDates[0]){
+    document.getElementById('dataRange').textContent=
+      'Data: '+STATE.txnDates[0].substring(0,10)+' to '+STATE.txnDates[1].substring(0,10);
+  }
+}
+
+// ============================================================
+// EXEC SUMMARY
+// ============================================================
+function renderExecSummary(){
+  const allMonths=Object.keys(STATE.monthly).sort();
+  if(!allMonths.length)return;
+
+  const now=new Date();
+  const curMonthKey=now.toISOString().substring(0,7);
+  const curMonthIdx=allMonths.indexOf(curMonthKey);
+
+  // Last full month and month before that for WoW/MoM comparisons
+  const lastMonthKey=curMonthIdx>0?allMonths[curMonthIdx-1]:(allMonths.length>=2?allMonths[allMonths.length-2]:allMonths[allMonths.length-1]);
+  const prevMonthKey=allMonths[allMonths.indexOf(lastMonthKey)-1]||null;
+  const curM=STATE.monthly[curMonthKey]||null;
+  const lastM=STATE.monthly[lastMonthKey];
+  const prevM=prevMonthKey?STATE.monthly[prevMonthKey]:null;
+
+  // Subtitle
+  const endDate=STATE.txnDates[1]?STATE.txnDates[1].substring(0,10):'';
+  document.getElementById('execSubtitle').textContent=endDate?'Data through '+endDate:'';
+
+  // --- HEADLINES ---
+  // MRR: last full month revenue
+  const mrr=lastM?(lastM.salesAmt+lastM.rebillAmt):0;
+  const arr=mrr*12;
+  const prevMrr=prevM?(prevM.salesAmt+prevM.rebillAmt):0;
+  const mrrChange=prevMrr>0?(mrr-prevMrr)/prevMrr:0;
+
+  document.getElementById('exMRR').textContent=fmtK(mrr);
+  document.getElementById('exMRRDetail').textContent=fmtK(arr)+' ARR';
+  const mrrBadge=document.getElementById('exMRRBadge');
+  if(prevMrr>0){
+    mrrBadge.textContent=(mrrChange>=0?'+':'')+fmtPct(mrrChange)+' vs prior month';
+    mrrBadge.className='ec-badge'+(mrrChange<0?' negative':'');
+  }else{mrrBadge.textContent=''}
+
+  // Active Subs
+  const totalSubs=STATE.activeSubs+(STATE.subStatus['Pending Cancellation']||0);
+  const lastNewSales=lastM?lastM.salesCount:0;
+  const lastCanc=lastM?(lastM.cancellationCount+lastM.requestCanCount):0;
+  const netNew=lastNewSales-lastCanc;
+  document.getElementById('exSubs').textContent=fmtN(totalSubs);
+  document.getElementById('exSubsDetail').textContent=fmtN(STATE.activeSubs)+' active + '+fmtN(STATE.subStatus['Pending Cancellation']||0)+' pending cancel';
+  const subsBadge=document.getElementById('exSubsBadge');
+  subsBadge.textContent=(netNew>=0?'+':'')+fmtN(netNew)+' net last month';
+  subsBadge.className='ec-badge'+(netNew<0?' negative':'');
+
+  // --- FORECAST ---
+  const curMonthName=now.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  document.getElementById('exForecastLabel').textContent=curMonthName+' Forecast';
+
+  // Forecasted rebills from subscription data
+  const forecastAmt=STATE.subForecast[curMonthKey]||0;
+  const collectedMTD=curM?(curM.rebillAmt):0;
+  document.getElementById('exRebills').textContent=fmtK(forecastAmt);
+  document.getElementById('exRebillsDetail').textContent=fmtK(collectedMTD)+' rebills already collected MTD';
+  document.getElementById('exRebillsBadge').textContent='';
+
+  // Full month forecast: collected MTD + remaining forecast + projected new sales
+  const salesMTD=curM?curM.salesAmt:0;
+  const dayOfMonth=now.getDate();
+  const daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const projectedNewSales=dayOfMonth>0?(salesMTD/dayOfMonth)*daysInMonth:salesMTD;
+  const fullForecast=forecastAmt+projectedNewSales;
+  document.getElementById('exForecast').textContent=fmtK(fullForecast);
+  document.getElementById('exForecastDetail').textContent='Rebills '+fmtK(forecastAmt)+' + new sales ~'+fmtK(projectedNewSales)+' (projected)';
+  const fcBadge=document.getElementById('exForecastBadge');
+  if(prevMrr>0){
+    const vsPrev=fullForecast/mrr;
+    fcBadge.textContent=vsPrev>=1?'On pace':'Below prior month';
+    fcBadge.className='ec-badge'+(vsPrev<1?' warn':'');
+  }else{fcBadge.textContent=''}
+
+  // --- PERFORMANCE ---
+  document.getElementById('exPerfLabel').textContent='Last Full Month ('+monthLabel(lastMonthKey)+')';
+
+  const lastNet=lastM?lastM.netRevenue:0;
+  const prevNet=prevM?prevM.netRevenue:0;
+  const netChange=prevNet>0?(lastNet-prevNet)/prevNet:0;
+  document.getElementById('exNetRev').textContent=fmtK(lastNet);
+  document.getElementById('exNetRevDetail').textContent='Gross '+fmtK(lastM?(lastM.salesAmt+lastM.rebillAmt):0)+' minus refunds/chargebacks';
+  const nrBadge=document.getElementById('exNetRevBadge');
+  if(prevNet>0){
+    nrBadge.textContent=(netChange>=0?'+':'')+fmtPct(netChange)+' vs prior month';
+    nrBadge.className='ec-badge'+(netChange<0?' negative':'');
+  }else{nrBadge.textContent=''}
+
+  document.getElementById('exNewCust').textContent=fmtN(lastNewSales);
+  const prevNewSales=prevM?prevM.salesCount:0;
+  document.getElementById('exNewCustDetail').textContent=prevNewSales>0?'vs '+fmtN(prevNewSales)+' prior month ('+(lastNewSales>=prevNewSales?'+':'')+fmtPct(prevNewSales>0?(lastNewSales-prevNewSales)/prevNewSales:0)+')':'';
+
+  document.getElementById('exCanc').textContent=fmtN(lastCanc);
+  const prevCanc=prevM?(prevM.cancellationCount+prevM.requestCanCount):0;
+  document.getElementById('exCancDetail').textContent=prevCanc>0?'vs '+fmtN(prevCanc)+' prior month':'';
+
+  // --- UNIT ECONOMICS ---
+  const arpu=STATE.activeSubs>0?mrr/STATE.activeSubs:0;
+  document.getElementById('exARPU').textContent=fmt(arpu);
+  document.getElementById('exARPUDetail').textContent='Per active subscriber/month';
+
+  // Churn rate
+  const startActive=totalSubs+lastCanc;
+  const churnRate=startActive>0?lastCanc/startActive:0;
+  document.getElementById('exChurn').textContent=fmtPct(churnRate);
+  document.getElementById('exChurnDetail').textContent=fmtN(lastCanc)+' cancellations in '+monthLabel(lastMonthKey);
+
+  // Refunds
+  const lastRefunds=lastM?Math.abs(lastM.refundAmt)+Math.abs(lastM.chargebackAmt)+Math.abs(lastM.partialRefundAmt):0;
+  const lastGross=lastM?(lastM.salesAmt+lastM.rebillAmt):1;
+  document.getElementById('exRefunds').textContent=fmt(lastRefunds);
+  document.getElementById('exRefundsDetail').textContent=fmtPct(lastGross>0?lastRefunds/lastGross:0)+' of gross revenue in '+monthLabel(lastMonthKey);
+  const rfBadge=document.getElementById('exRefundsBadge');
+  const rfPct=lastGross>0?lastRefunds/lastGross:0;
+  if(rfPct>0.05){rfBadge.textContent='Above 5% — monitor closely';rfBadge.className='ec-badge negative'}
+  else if(rfPct>0.02){rfBadge.textContent='Moderate';rfBadge.className='ec-badge warn'}
+  else{rfBadge.textContent='Healthy';rfBadge.className='ec-badge'}
+
+  // --- CHARTS ---
+  renderExecCharts(allMonths);
+
+  // --- NARRATIVES ---
+  renderExecNarratives(lastM,prevM,lastMonthKey,mrr,prevMrr,churnRate,totalSubs,lastRefunds,lastGross);
+
+  document.getElementById('exSourceDate').textContent=endDate?'As of '+endDate:'';
+}
+
+function renderExecCharts(allMonths){
+  // Revenue vs Net Profit (last 16 months)
+  const chartMonths=allMonths.slice(-16);
+  const labels=chartMonths.map(monthLabel);
+  const revData=chartMonths.map(m=>(STATE.monthly[m]?.salesAmt||0)+(STATE.monthly[m]?.rebillAmt||0));
+  const profitData=chartMonths.map(m=>STATE.monthly[m]?.netRevenue||0);
+
+  destroyChart('exChartRevProfit');
+  makeChart('exChartRevProfit',{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'Revenue',data:revData,backgroundColor:'rgba(45,212,168,.7)',borderColor:'rgba(45,212,168,.9)',borderWidth:1,borderRadius:4,order:2},
+      {label:'Net Profit',data:profitData,type:'line',borderColor:'rgba(139,92,246,.8)',backgroundColor:'rgba(139,92,246,.08)',fill:true,tension:.3,pointRadius:3,pointBackgroundColor:'rgba(139,92,246,.8)',borderWidth:2,order:1}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#6b7280',font:{size:11}},position:'top'},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt(ctx.raw)}}},
+      scales:{
+        x:{ticks:{color:'#9ca3af',font:{size:10}},grid:{display:false}},
+        y:{ticks:{color:'#9ca3af',font:{size:10},callback:v=>fmtK(v)},grid:{color:'rgba(0,0,0,.06)'},beginAtZero:true}
+      }}
+  });
+
+  // Active Subscribers Trend (reconstruct from monthly data)
+  const trendMonths=allMonths.slice(-12);
+  let currentActive=STATE.activeSubs+(STATE.subStatus['Pending Cancellation']||0);
+  const activeByMonth={};
+  for(let i=allMonths.length-1;i>=0;i--){
+    const m=allMonths[i];
+    const d=STATE.monthly[m];
+    activeByMonth[m]=currentActive;
+    currentActive=currentActive+d.cancellationCount-d.salesCount+d.revertCanCount;
+    if(currentActive<0)currentActive=0;
+  }
+  const subLabels=trendMonths.map(monthLabel);
+  const subData=trendMonths.map(m=>activeByMonth[m]||0);
+
+  destroyChart('exChartSubTrend');
+  makeChart('exChartSubTrend',{
+    type:'line',
+    data:{labels:subLabels,datasets:[{
+      label:'Total Active Subscribers',data:subData,
+      borderColor:'rgba(45,212,168,.8)',backgroundColor:'rgba(45,212,168,.08)',
+      fill:true,tension:.3,pointRadius:4,pointBackgroundColor:'rgba(45,212,168,.8)',borderWidth:2
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#6b7280'},position:'top'},tooltip:{callbacks:{label:ctx=>fmtN(ctx.raw)+' subscribers'}}},
+      scales:{
+        x:{ticks:{color:'#9ca3af',font:{size:10}},grid:{display:false}},
+        y:{ticks:{color:'#9ca3af',font:{size:10},callback:v=>fmtN(v)},grid:{color:'rgba(0,0,0,.06)'}}
+      }}
+  });
+
+  // Churn rate (last 6 months)
+  const churnMonths=allMonths.slice(-6);
+  const churnLabels=churnMonths.map(monthLabel);
+  const churnData=churnMonths.map(m=>{
+    const d=STATE.monthly[m];
+    if(!d)return 0;
+    const active=activeByMonth[m]||1;
+    return Math.min(d.cancellationCount/active,1);
+  });
+
+  destroyChart('exChartChurn');
+  makeChart('exChartChurn',{
+    type:'line',
+    data:{labels:churnLabels,datasets:[{
+      label:'Monthly Churn %',data:churnData,
+      borderColor:'rgba(239,68,68,.7)',backgroundColor:'rgba(239,68,68,.06)',
+      fill:true,tension:.3,pointRadius:4,pointBackgroundColor:'rgba(239,68,68,.7)',borderWidth:2
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#6b7280'},position:'top'},tooltip:{callbacks:{label:ctx=>fmtPct(ctx.raw)}}},
+      scales:{
+        x:{ticks:{color:'#9ca3af',font:{size:10}},grid:{display:false}},
+        y:{ticks:{color:'#9ca3af',font:{size:10},callback:v=>fmtPct(v)},grid:{color:'rgba(0,0,0,.06)'},beginAtZero:true}
+      }}
+  });
+}
+
+function renderExecNarratives(lastM,prevM,lastMonthKey,mrr,prevMrr,churnRate,totalSubs,lastRefunds,lastGross){
+  const working=[];
+  const watch=[];
+
+  // Auto-generate insights from data
+  const mrrChange=prevMrr>0?(mrr-prevMrr)/prevMrr:0;
+  if(mrrChange>0) working.push('<strong>MRR grew '+fmtPct(mrrChange)+'.</strong> <span>Now at '+fmtK(mrr)+'/mo ('+fmtK(mrr*12)+' ARR).</span>');
+  if(mrrChange<0) watch.push('<strong>MRR declined '+fmtPct(Math.abs(mrrChange))+'.</strong> <span>Down from '+fmtK(prevMrr)+' to '+fmtK(mrr)+'.</span>');
+
+  const lastNew=lastM?lastM.salesCount:0;
+  const prevNew=prevM?prevM.salesCount:0;
+  if(lastNew>prevNew&&prevNew>0) working.push('<strong>New sales up '+(((lastNew-prevNew)/prevNew)*100).toFixed(0)+'%.</strong> <span>'+fmtN(lastNew)+' new customers in '+monthLabel(lastMonthKey)+' vs '+fmtN(prevNew)+' prior month.</span>');
+  if(lastNew<prevNew&&prevNew>0) watch.push('<strong>New sales down '+(((prevNew-lastNew)/prevNew)*100).toFixed(0)+'%.</strong> <span>'+fmtN(lastNew)+' vs '+fmtN(prevNew)+' prior month.</span>');
+
+  if(churnRate<0.05) working.push('<strong>Churn at '+fmtPct(churnRate)+'.</strong> <span>Healthy retention — under 5% threshold.</span>');
+  if(churnRate>=0.05&&churnRate<0.10) watch.push('<strong>Churn at '+fmtPct(churnRate)+'.</strong> <span>Elevated — investigate cancellation reasons.</span>');
+  if(churnRate>=0.10) watch.push('<strong>Churn at '+fmtPct(churnRate)+' is high.</strong> <span>Above 10% — needs immediate attention.</span>');
+
+  if(totalSubs>5000) working.push('<strong>'+fmtN(totalSubs)+' total subscribers.</strong> <span>Strong base for recurring revenue.</span>');
+
+  const rfPct=lastGross>0?lastRefunds/lastGross:0;
+  if(rfPct>0.03) watch.push('<strong>Refund rate at '+fmtPct(rfPct)+'.</strong> <span>'+fmt(lastRefunds)+' in refunds/chargebacks — monitor for trends.</span>');
+  if(rfPct<=0.02&&lastRefunds>0) working.push('<strong>Refund rate only '+fmtPct(rfPct)+'.</strong> <span>Well below industry average.</span>');
+
+  const failedLast=lastM?lastM.failedCount:0;
+  if(failedLast>50) watch.push('<strong>'+fmtN(failedLast)+' failed payments last month.</strong> <span>'+fmt(lastM?lastM.failedAmt:0)+' at risk — consider dunning optimization.</span>');
+
+  const lastCanc=lastM?(lastM.cancellationCount+lastM.requestCanCount):0;
+  const prevCanc=prevM?(prevM.cancellationCount+prevM.requestCanCount):0;
+  if(lastCanc<prevCanc&&prevCanc>0) working.push('<strong>Cancellations down '+(((prevCanc-lastCanc)/prevCanc)*100).toFixed(0)+'%.</strong> <span>'+fmtN(lastCanc)+' vs '+fmtN(prevCanc)+' prior month.</span>');
+  if(lastCanc>prevCanc&&prevCanc>0) watch.push('<strong>Cancellations up '+(((lastCanc-prevCanc)/prevCanc)*100).toFixed(0)+'%.</strong> <span>'+fmtN(lastCanc)+' vs '+fmtN(prevCanc)+' prior month.</span>');
+
+  if(working.length===0) working.push('<strong>Data processed.</strong> <span>Add more months of data for richer insights.</span>');
+  if(watch.length===0) watch.push('<strong>No major concerns detected.</strong> <span>All metrics look stable.</span>');
+
+  document.getElementById('exWorkingList').innerHTML=working.map(w=>'<li>'+w+'</li>').join('');
+  document.getElementById('exWatchList').innerHTML=watch.map(w=>'<li>'+w+'</li>').join('');
 }
 
 // ============================================================
@@ -1113,9 +1570,8 @@ async function processDataFromURL(){
   await new Promise(r=>setTimeout(r,100));
 
   overlay.classList.add('hidden');
-  document.getElementById('dashboard').style.display='block';
   document.getElementById('headerControls').style.display='flex';
-  renderDashboard();
+  switchView('exec');
 }
 
 function parseTransactionsFromURL(url){
