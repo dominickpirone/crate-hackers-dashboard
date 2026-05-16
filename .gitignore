@@ -11,4 +11,5 @@ Thumbs.db
 .idea/
 
 # Claude local config
-.claude/
+.claude/*
+!.claude/skills/
